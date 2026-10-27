@@ -50,6 +50,7 @@ jobs:
           NEXT_PUBLIC_BUILD_TIME: ${{ github.event.pull_request.updated_at }}
 
       - name: Deploy a preview channel
+        id: deploy_preview
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -58,3 +59,6 @@ jobs:
           projectId: practica-firebase-cicd-33d61
           # A3: tiempo que vive el preview (ej. 3d).
           expires: 3d
+
+      - name: Verificar headers HTTP y caché en el preview (Gate)
+        run: node scripts/check-headers.mjs ${{ steps.deploy_preview.outputs.details_url }}
