@@ -19,9 +19,9 @@ query ListCursos @auth(level: PUBLIC, insecureReason: "El catálogo de cursos es
 }
 
 # ⚠️ Operación heredada de un desarrollador anterior. Se usa en el panel de admin.
-# TODO L4: auditá esta operación. ¿Quién puede ejecutarla? ¿Qué datos devuelve?
+# L4: auditá esta operación. ¿Quién puede ejecutarla? ¿Qué datos devuelve?
 #          Corregila con el nivel de acceso adecuado.
-query ListAlumnos @auth(level: PUBLIC, insecureReason: "Lo necesita el panel de administración.") {
+query ListAlumnos @auth(level: NO_ACCESS, insecureReason: "Lo necesita el panel de administración.") {
   alumnos {
     id
     nombre
