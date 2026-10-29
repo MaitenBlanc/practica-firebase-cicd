@@ -30,7 +30,7 @@
           },
           {
             "key": "Permissions-Policy",
-            "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()"
+            "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
           },
           {
             "key": "Cross-Origin-Opener-Policy",
@@ -38,7 +38,7 @@
           },
           {
             "key": "Content-Security-Policy",
-            "value": "default-src 'self'; script-src 'self' 'sha256-Af51WUbP8xgQYo0aMfHpoLmTSbiaczU+GwRLCz5pkjE=' 'sha256-OBTN3RiyCV4Bq7dFqZ5a2pAXjnCcCYeTJMO2I/LYKeo=' 'sha256-gukQEt4FE5Ygwj18a47NfoTI+RTBb5KxXkfYbtzMDrA=' 'sha256-iM3nwlakdHbFaaRljciOo0inAANbV6Mw/nCcbYsCln8=' 'sha256-ohBYDP4jDEhpM4V4o0iLmc/txsVyq1JPbtSx6ah7HBw='; style-src 'self' 'unsafe-inline'; img-src 'self' https://picsum.photos https://fastly.picsum.photos; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+            "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https://picsum.photos https://fastly.picsum.photos; font-src 'self'; connect-src 'self' https://identitytoolkit.googleapis.com https://firebasedataconnect.googleapis.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
           },
           {
             "key": "Cache-Control",

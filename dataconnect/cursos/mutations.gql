@@ -33,7 +33,7 @@ mutation Inscribirme($cursoId: UUID!) @auth(level: USER) {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# TODO L5 (opcional): Mutation `DarmeDeBaja($cursoId: UUID!)`
+# L5 (opcional): Mutation `DarmeDeBaja($cursoId: UUID!)`
 #   - Borra la inscripción del usuario que llama en ese curso, y solo esa.
 #   - Pista: matricula_delete(key: { ... })
 # ─────────────────────────────────────────────────────────────────────────────
