@@ -201,3 +201,216 @@ Auditoría de SQL Connect · proyecto practica-firebase-cicd-33d61 · emuladores
   Bajo `*.googleapis.com` operan decenas de servicios públicos de Google Cloud ( entre ellos `https://storage.googleapis.com`, Google Drive API, Firebase Realtime Database o Cloud Functions de cualquier proyecto de terceros). Si un atacante lograra una inyección o comprometiera una dependencia, un comodín `https://*.googleapis.com` en `connect-src` le permitiría **exfiltrar datos sensibles** (tokens, PII) hacia un bucket de Cloud Storage controlado por el atacante (`storage.googleapis.com/bucket-atacante`) sin que el navegador lo bloquee. Listar únicamente los tres orígenes exactos aplica el principio de mínimo privilegio a nivel de red en el navegador.
 - **Análisis de la migración SQL en el deploy (`dataconnect:sql:diff` / L7)**:
   Al ejecutar el deploy de SQL Connect, la herramienta compara el esquema declarativo (`schema.gql`) contra el catálogo de PostgreSQL en Cloud SQL y genera las sentencias DDL correspondientes: creación de las tablas `"public"."curso"`, `"public"."alumno"` (con `id VARCHAR PRIMARY KEY`) y `"public"."matricula"`, definiendo `PRIMARY KEY ("alumno_id", "curso_id")` y las restricciones `FOREIGN KEY ("alumno_id") REFERENCES "public"."alumno" ("id") ON DELETE CASCADE` y `FOREIGN KEY ("curso_id") REFERENCES "public"."curso" ("id") ON DELETE CASCADE`, garantizando la integridad referencial en la base de producción.
+
+---
+
+## Práctica 4 · Firestore
+
+### 1. Evidencia de Tests de Reglas (`npm run test:reglas`) — Entregable 2
+
+#### A. Todos los tests en verde (`d.puntaje <= 5` en `firestore.rules`)
+
+![Tests de reglas en verde](docs/capturas-practica-4/tests-en-verde.jpg)
+
+```text
+$ npm run test:reglas
+
+> practica-firebase-cicd@1.0.0 test:reglas
+> firebase emulators:exec --only firestore "node --test tests/"
+
+i  emulators: Starting emulators: firestore
+i  firestore: Firestore Emulator logging to firestore-debug.log
+✔  firestore: Firestore Emulator was started in standard edition.
+✔  firestore: Firestore Emulator UI websocket is running on 9150.
+i  Running script: node --test tests/
+✔ cualquiera puede leer reseñas, incluso sin login (2047.101666ms)
+✔ Ana puede crear SU reseña (304.497626ms)
+[2026-10-30T19:33:26.394Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x1d7e9786 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L30, false for 'create' @ L42, false for 'update' @ L33, false for 'update' @ L42
+✔ Ana NO puede crear una reseña a nombre de Bruno (175.598343ms)
+[2026-10-30T19:33:26.537Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x1d7e9787 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L30, false for 'create' @ L42, false for 'update' @ L33, false for 'update' @ L42
+✔ sin login no se puede escribir (143.295452ms)
+[2026-10-30T19:33:26.720Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x1d7e9788 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L30:26 for 'create' @ L30, false for 'create' @ L42, evaluation error at L33:26 for 'update' @ L33, false for 'update' @ L42, false for 'create' @ L30, false for 'create' @ L42
+[2026-10-30T19:33:26.815Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x1d7e9789 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L30:26 for 'create' @ L30, false for 'create' @ L42, evaluation error at L33:26 for 'update' @ L33, false for 'update' @ L42, false for 'create' @ L30, false for 'create' @ L42
+✔ puntaje fuera de rango o con decimales se rechaza (277.069303ms)
+[2026-10-30T19:33:26.923Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x1d7e978a error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L30:26 for 'create' @ L30, false for 'create' @ L42, evaluation error at L33:26 for 'update' @ L33, false for 'update' @ L42, false for 'create' @ L30, false for 'create' @ L42
+✔ no se pueden agregar campos extra (p. ej. destacada: true) (106.481283ms)
+[2026-10-30T19:33:27.026Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x1d7e978b error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L30, false for 'create' @ L42, evaluation error at L33:26 for 'update' @ L33, false for 'update' @ L42, false for 'create' @ L30, false for 'create' @ L42
+[2026-10-30T19:33:27.238Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x1d7e978c error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L33:26 for 'update' @ L33, false for 'update' @ L42, false for 'update' @ L33, false for 'update' @ L42
+✔ la fecha de creación la pone el servidor y no se puede cambiar (358.095079ms)
+[2026-10-30T19:33:27.420Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x1d7e978e error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L25, false for 'create' @ L42, false for 'update' @ L25, false for 'update' @ L42
+✔ el cliente no puede escribir el documento del curso (137.571752ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3987.856641
+✔  Script exited successfully (code 0)
+i  emulators: Shutting down emulators.
+i  firestore: Stopping Firestore Emulator
+i  hub: Stopping emulator hub
+i  logging: Stopping Logging Emulator
+```
+
+#### B. Prueba de "hacerlo fallar a propósito" (cambiando `d.puntaje <= 5` por `d.puntaje <= 6`)
+
+Al relajar la regla a `d.puntaje <= 6`, el test `"puntaje fuera de rango o con decimales se rechaza"` falla inmediatamente en `tests/reglas.test.mjs:45:3` porque `assertFails(setDoc(ref, resena({ puntaje: 6 })))` esperaba que la escritura fuera rechazada por las Security Rules, pero el emulador la permitió:
+
+![Prueba de hacerlo fallar a propósito](docs/capturas-practica-4/tests-fallo-proposito.jpg)
+
+```text
+$ npm run test:reglas
+> firebase emulators:exec --only firestore "node --test tests/"
+
+i  emulators: Starting emulators: firestore
+i  firestore: Firestore Emulator logging to firestore-debug.log
+✔  firestore: Firestore Emulator was started in standard edition.
+✔  firestore: Firestore Emulator UI websocket is running on 9150.
+i  Running script: node --test tests/
+✔ cualquiera puede leer reseñas, incluso sin login (1516.70485ms)
+✔ Ana puede crear SU reseña (351.19169ms)
+[2026-10-30T19:34:42.292Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x5d076bf7 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L30, false for 'create' @ L42, false for 'update' @ L33, false for 'update' @ L42
+✔ Ana NO puede crear una reseña a nombre de Bruno (123.264325ms)
+[2026-10-30T19:34:42.396Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x5d076bf8 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L30, false for 'create' @ L42, false for 'update' @ L33, false for 'update' @ L42
+✔ sin login no se puede escribir (103.092372ms)
+✖ puntaje fuera de rango o con decimales se rechaza (268.128696ms)
+[2026-10-30T19:34:43.548Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x5d076bfa error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L30:26 for 'create' @ L30, false for 'create' @ L42, evaluation error at L33:26 for 'update' @ L33, false for 'update' @ L42, false for 'create' @ L30, false for 'create' @ L42
+✔ no se pueden agregar campos extra (p. ej. destacada: true) (882.365656ms)
+[2026-10-30T19:34:43.678Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x5d076bfb error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L30, false for 'create' @ L42, evaluation error at L33:26 for 'update' @ L33, false for 'update' @ L42, false for 'create' @ L30, false for 'create' @ L42
+[2026-10-30T19:34:43.789Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x5d076bfc error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L33:26 for 'update' @ L33, false for 'update' @ L42, false for 'update' @ L33, false for 'update' @ L42
+✔ la fecha de creación la pone el servidor y no se puede cambiar (280.929031ms)
+[2026-10-30T19:34:43.909Z]  @firebase/firestore: Firestore (13.1.0): GrpcConnection RPC 'Write' stream 0x5d076bfe error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L25, false for 'create' @ L42, false for 'update' @ L25, false for 'update' @ L42
+✔ el cliente no puede escribir el documento del curso (78.947473ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4033.560477
+
+✖ failing tests:
+
+test at tests/reglas.test.mjs:42:1
+✖ puntaje fuera de rango o con decimales se rechaza (268.128696ms)
+  Error: Expected request to fail, but it succeeded.
+      at file:///home/maiten/Escritorio/UADER/3%C2%B0A%C3%B1o/Programaci%C3%B3n%20Avanzada/Practicas/practica-firebase-cicd/node_modules/@firebase/rules-unit-testing/dist/esm/index.esm.js:572:31
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///home/maiten/Escritorio/UADER/3%C2%B0A%C3%B1o/Programaci%C3%B3n%20Avanzada/Practicas/practica-firebase-cicd/tests/reglas.test.mjs:45:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+⚠  Script exited unsuccessfully (code 1)
+i  emulators: Shutting down emulators.
+i  firestore: Stopping Firestore Emulator
+i  hub: Stopping emulator hub
+i  logging: Stopping Logging Emulator
+
+Error: Script "node --test tests/" exited with code 1
+```
+
+---
+
+### 2. Evidencia de Actualización en Tiempo Real en Producción (`onSnapshot`) — Entregable 3
+
+En la siguiente captura se observan dos sesiones de navegador en paralelo sobre el entorno de producción (`https://practica-firebase-cicd-33d61.web.app/cursos`):
+- **Izquierda (usuario autenticado `Prueba 1`)**: publica la reseña `"Comentario prueba"` con 5 estrellas en el curso *Arquitecturas serverless* (el botón cambia a `"Actualizar mi reseña"`).
+- **Derecha (ventana privada sin sesión iniciada)**: recibe la reseña instantáneamente vía WebChannel (`onSnapshot`) sin recargar la página y actualiza el resumen de agregación a `5.0 ⭐ de 1 reseñas`.
+
+![Actualización en tiempo real entre dos navegadores](docs/capturas-practica-4/tiempo-real-dos-navegadores.png)
+
+---
+
+### 3. Preguntas de reflexión — Práctica 4 (Sección 11)
+
+#### 1. ¿Por qué el id del documento es el UID? ¿Qué tendrías que agregar (en reglas o en código) si usaras ids aleatorios con `addDoc`?
+- **Por qué el ID del documento es el UID (`cursos/{cursoId}/resenas/{uid}`)**:
+  En Firestore los identificadores de documento dentro de una misma subcolección son únicos por definición. Al usar el `uid` de Firebase Auth como clave primaria del documento:
+  1. **Regla de negocio garantizada por estructura**: Es físicamente imposible que una misma persona cree dos documentos distintos dentro de `cursos/{cursoId}/resenas/`. Publicar por segunda vez sobrescribe/actualiza el mismo documento (`setDoc`).
+  2. **Autorización determinística y sin lecturas extra en Security Rules**: En `firestore.rules`, el comodín `match /resenas/{uid}` captura el ID del documento y permite validar propiedad en $O(1)$ comparando `request.auth.uid == uid` (`esDuenio(uid)`), sin gastar lecturas adicionales (`get()`/`exists()`).
+- **Qué habría que cambiar si se usaran IDs aleatorios con `addDoc`**:
+  1. **En el modelo y en las reglas**: Habría que guardar obligatoriamente un campo `uid` (o `autorUid`) dentro del body del documento y validar en `firestore.rules`:
+     - En `create`: `request.resource.data.uid == request.auth.uid`.
+     - En `update`: `resource.data.uid == request.auth.uid && request.resource.data.uid == resource.data.uid` (para que nadie transfiera la autoría).
+     - En `delete`: `resource.data.uid == request.auth.uid`.
+  2. **El gran problema (unicidad rota)**: Las Security Rules de Firestore **no pueden ejecutar queries (`where("uid", "==", request.auth.uid)`)** para verificar si ya existe otra reseña del mismo usuario en la subcolección. Con `addDoc` e IDs aleatorios, aunque el código del frontend intente buscar primero si el usuario ya opinó, un usuario malicioso desde la consola podría llamar a `addDoc` 1.000 veces y crear 1.000 reseñas distintas para inflar el promedio del curso. La única forma de mantener "1 reseña por usuario" en Firestore sin backend intermedio es que la clave determinística del documento sea el `uid` (o mantener un documento índice auxiliar validado con `existsAfter` en un `writeBatch`).
+
+#### 2. La reseña guarda una copia del nombre del autor. ¿Qué ganás y qué perdés con esa desnormalización? ¿Cómo resolverías el cambio de nombre?
+- **Qué ganás (optimización de lecturas y latencia)**:
+  En Firestore no existen `JOIN`s del lado del servidor y **se factura por documento leído**. Al copiar `autor: usuario.displayName` dentro de cada documento de `resenas`, renderizar una lista de 20 reseñas cuesta únicamente **20 lecturas** (1 snapshot con 20 documentos) y 1 sola ida y vuelta de red. Si solo guardáramos el `uid` normalizado, el cliente tendría que hacer hasta 20 lecturas adicionales a una colección `/usuarios/{uid}` (duplicando el costo a 40 lecturas por visita y agregando latencia en cascada).
+- **Qué perdés (consistencia eventual / datos obsoletos)**:
+  Perdés una única fuente de verdad (*Single Source of Truth*) para el nombre. Si el usuario cambia su `displayName` en su perfil, las reseñas que escribió en el pasado quedan con el nombre viejo.
+- **Cómo resolver el cambio de nombre (estrategias arquitectónicas)**:
+  1. **Propagación asíncrona en background (Fan-out con Cloud Functions)**: Cuando el usuario actualiza su perfil en la colección `usuarios/{uid}` (o vía función callable), una **Cloud Function** dispara una consulta `collectionGroup("resenas").where("uid", "==", uid)` desde el Admin SDK y actualiza el campo `autor` en lote mediante `WriteBatch` (hasta 500 documentos por batch). Es el patrón estándar en NoSQL cuando las lecturas superan ampliamente a los cambios de nombre.
+  2. **Política de negocio ("snapshot histórico")**: En sistemas donde el cambio de nombre es infrecuente o donde interesa conservar el nombre al momento de la emisión (como facturas o auditorías), se acepta la desnormalización tal cual o se actualiza el nombre únicamente cuando el usuario edita su reseña.
+
+#### 3. ¿Qué diferencia hay entre `resource.data` y `request.resource.data`? Dá un ejemplo de regla que use ambos.
+- **Diferencia conceptual**:
+  - `resource.data`: Representa el estado **actual** del documento que **ya está almacenado en Firestore antes** de que se ejecute la operación. Existe en operaciones `read`, `update` y `delete` (en `create` es `null` porque el documento aún no existe).
+  - `request.resource.data`: Representa el estado **futuro/resultante** completo que tendrá el documento **si la escritura se acepta** (ya habiendo aplicado un `merge: true` o `updateDoc` parcial). Existe en operaciones `create` y `update` (en `delete` es `null`).
+- **Ejemplos concretos que usan ambos en una regla `update`**:
+  1. **Inmutabilidad de la fecha de creación (usado en nuestra práctica)**:
+     ```javascript
+     allow update: if esDuenio(uid)
+       && resenaValida()
+       && request.resource.data.creadaEn == resource.data.creadaEn;
+     ```
+     Compara el valor que quedaría guardado (`request.resource.data.creadaEn`) contra el valor original que ya estaba en la base (`resource.data.creadaEn`), impidiendo que el autor adultere la antigüedad de su reseña al editarla.
+  2. **Otro ejemplo práctico (contador monotónico o bloqueo de edición tras moderación)**:
+     Impedir que un autor edite su reseña si ya fue marcada como `bloqueada` en la base, o exigir que un contador de versión aumente en exactamente 1:
+     ```javascript
+     allow update: if esDuenio(uid)
+       && resource.data.bloqueada == false
+       && request.resource.data.version == resource.data.version + 1;
+     ```
+
+#### 4. ¿Por qué la regla de creación exige `creadaEn == request.time` en lugar de confiar en la fecha del cliente?
+- **El cliente es un entorno no confiable**: El reloj de la máquina del usuario puede estar desconfigurado involuntariamente (otra zona horaria, pila de BIOS agotada) o puede ser manipulado deliberadamente desde la consola del navegador enviando `Timestamp.fromDate(new Date(2099, 0, 1))`.
+- **Impacto de negocio si se confiara en el cliente**: Como la lista de reseñas se ordena con `orderBy("creadaEn", "desc")` y `limit(20)`, si un usuario enviara una fecha en el año 2099, su reseña quedaría **fijada permanentemente en el primer lugar** de la lista por encima de todas las reseñas reales futuras (*pinning attack*), o podría falsificar que opinó hace años.
+- **Cómo funciona `request.resource.data.creadaEn == request.time`**:
+  Cuando el cliente invoca `serverTimestamp()`, el SDK envía un token centinela especial al servidor de Firestore. Al procesar la escritura, el motor de Firestore reemplaza ese centinela por la marca de tiempo exacta de la transacción en los servidores de Google (`request.time`). La regla exige esa igualdad exacta: cualquier `Timestamp` fabricado manualmente por el cliente no coincidirá al nanosegundo con `request.time` y será rechazado con `PERMISSION_DENIED`.
+
+#### 5. ¿Qué limitación tiene `getAggregateFromServer` y cómo afecta la experiencia de usuario? ¿Qué alternativas hay?
+- **Limitaciones técnicas y de UX**:
+  1. **No soporta tiempo real (sin `onSnapshot`)**: A diferencia de las queries de documentos, las consultas de agregación (`count()`, `average()`, `sum()`) son de una sola ejecución (*one-shot*). Si otro usuario en otro navegador edita el puntaje de su reseña (por ejemplo, cambia de 5 a 1 estrella), la lista de reseñas se actualiza en vivo gracias a `onSnapshot`, pero `resenas.length` no cambia y el promedio mostrado en el encabezado no se entera hasta recargar o hasta que cambie la cantidad de elementos visibles.
+  2. **No funciona offline**: Siempre requiere conectarse al servidor (`FromServer`), fallando si el cliente pierde conexión temporalmente.
+  3. **Costo y escalabilidad en lecturas**: Se cobra 1 lectura de documento por cada lote de hasta 1.000 entradas de índice escaneadas en cada visita a la página. Si un curso popular tiene 10.000 reseñas, cada visitante que abre la página consume 10 lecturas adicionales solo para calcular el promedio.
+- **Alternativas arquitectónicas**:
+  1. **Agregación precalculada desde el servidor con Cloud Functions (lo que se ve en la Práctica 5)**: Usar un trigger `onDocumentWritten("cursos/{cursoId}/resenas/{uid}")` en Cloud Functions que, cada vez que se crea, edita o borra una reseña, recalcule `cantidad` y `promedio` y los escriba directamente en el documento padre `cursos/{cursoId}`. Como en `firestore.rules` declaramos `match /cursos/{cursoId} { allow read: if true; allow write: if false; }`, el cliente no puede adulterar ese resumen, pero sí puede suscribirse con `onSnapshot` al documento del curso, obteniendo el promedio **en tiempo real**, con soporte **offline** y costando **1 sola lectura** sin importar si el curso tiene 10 o 100.000 reseñas.
+  2. **Contadores distribuidos (Distributed Counters)**: Si hubiera cientos de escrituras por segundo sobre el mismo curso (superando el límite de ~1 escritura sostenida por segundo sobre un mismo documento), se reparten los contadores en $N$ *shards* y se suman.
+
+#### 6. Para inscripciones con cupo máximo, ¿usarías Firestore o SQL Connect? Justificá con lo que viste en las dos prácticas.
+- **Elección: SQL Connect (PostgreSQL)** es la herramienta correcta para inscripciones con cupo máximo e integridad referencial.
+- **Justificación comparativa con ejemplos concretos de ambas prácticas**:
+  1. **Integridad referencial y esquema estricto**: En la Clase 2 (SQL Connect), `Matricula` tiene claves foráneas reales (`FOREIGN KEY (alumno_id) REFERENCES alumno(id)` y `FOREIGN KEY (curso_id) REFERENCES curso(id)`) y una clave primaria compuesta `(alumno_id, curso_id)` en el motor PostgreSQL. En Firestore (Práctica 4), las subcolecciones pueden colgar de un documento `cursos/{cursoId}` que ni siquiera existe en la base, y no hay garantías de integridad referencial entre colecciones.
+  2. **Control transaccional de cupo y concurrencia**: Validar que `inscriptos < cupo` requiere contar filas/documentos existentes y bloquear inserciones concurrentes cuando queda la última vacante.
+     - En **PostgreSQL (SQL Connect)**, una restricción/trigger transaccional con bloqueo de fila (`SELECT ... FOR UPDATE` sobre la fila del `Curso`) serializa las inscripciones concurrentes en el servidor, donde el cliente solo puede llamar a la mutación cerrada `Inscribirme(cursoId)`.
+     - En **Firestore**, como el cliente escribe directo contra la base, las Security Rules **no pueden ejecutar `count()`** sobre una colección para verificar cuántas inscripciones hay antes de aceptar un `create`. Habría que mantener un contador manual `inscriptos` dentro del documento `cursos/{cursoId}` y obligar al cliente a ejecutar una transacción que incremente el contador y cree la inscripción al mismo tiempo. Eso obligaría a abrir permisos de escritura (`allow update`) en `cursos/{cursoId}` para los clientes, complejizando enormemente las reglas de seguridad (usando `getAfter()`) para evitar que un alumno malicioso modifique el cupo o incremente/decremente el contador sin inscribirse.
+  3. **Diferencia con el caso de las reseñas**: En cambio, para **reseñas en vivo** (Práctica 4), no existe un cupo global compartido que requiera coordinación entre distintos usuarios (cada usuario solo toca su propio documento `resenas/{uid}`) y el requerimiento principal es empujar actualizaciones en tiempo real (`onSnapshot`) a todos los navegadores abiertos, donde Firestore resuelve de forma nativa lo que en PostgreSQL exigiría montar una capa extra de WebSockets o *polling*.
+
+---
+
+### 4. Diferencia entre Emulador y Producción con los Índices Compuestos (Paso 8)
+
+Al activar el filtro **"Solo 5 estrellas"**, la consulta en [`lib/resenas.ts`](file:///home/maiten/Escritorio/UADER/3°Año/Programación Avanzada/Practicas/practica-firebase-cicd/lib/resenas.ts) ejecuta:
+```ts
+query(resenasDe(cursoId), where("puntaje", "==", 5), orderBy("creadaEn", "desc"), limit(20))
+```
+- **Por qué exige un índice compuesto**: Firestore crea automáticamente índices de un solo campo, lo que alcanza para filtrar por un único campo o para ordenar por un único campo. Pero cuando una consulta combina un filtro sobre un campo (`puntaje == 5`) con un ordenamiento sobre **otro campo distinto** (`creadaEn DESC`), Firestore necesita recorrer las entradas ya ordenadas por el par `(puntaje ASC, creadaEn DESC)` en un único barrido contiguo para mantener su garantía de que el tiempo de respuesta depende del tamaño del resultado (`limit(20)`) y no del total de documentos de la colección.
+- **Diferencia crítica entre el Emulador y Producción**: El emulador local de Firestore evalúa las consultas en memoria sin exigir que los índices compuestos existan, por lo que el filtro "Solo 5 estrellas" funciona en `localhost` aunque `firestore.indexes.json` esté vacío. En **producción**, Firestore rechaza cualquier consulta que no tenga su índice compuesto previamente construido, arrojando `FirebaseError: [code=failed-precondition]: The query requires an index`. Por eso es indispensable versionar `firestore.indexes.json` como código y desplegarlo con `firebase deploy --only firestore:indexes`.

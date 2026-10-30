@@ -2,7 +2,7 @@
 import { after, before, beforeEach, test } from "node:test";
 import { readFileSync } from "node:fs";
 import { assertFails, assertSucceeds, initializeTestEnvironment } from "@firebase/rules-unit-testing";
-import { doc, getDoc, serverTimestamp, setDoc, Timestamp, updateDoc } from "firebase/firestore";
+import { doc, deleteDoc, getDoc, serverTimestamp, setDoc, Timestamp, updateDoc } from "firebase/firestore";
 
 /** @type {import('@firebase/rules-unit-testing').RulesTestEnvironment} */
 let env;
@@ -63,4 +63,25 @@ test("la fecha de creación la pone el servidor y no se puede cambiar", async ()
 test("el cliente no puede escribir el documento del curso", async () => {
   const db = env.authenticatedContext("ana").firestore();
   await assertFails(setDoc(doc(db, "cursos", CURSO), { resumen: { cantidad: 999, promedio: 5 } }));
+});
+
+test("Bruno NO puede editar ni borrar la reseña de Ana, pero Ana sí puede borrar la suya", async () => {
+  const dbAna = env.authenticatedContext("ana").firestore();
+  const dbBruno = env.authenticatedContext("bruno").firestore();
+  const refAnaInAna = doc(dbAna, "cursos", CURSO, "resenas", "ana");
+  const refAnaInBruno = doc(dbBruno, "cursos", CURSO, "resenas", "ana");
+
+  await assertSucceeds(setDoc(refAnaInAna, resena()));
+  await assertFails(updateDoc(refAnaInBruno, { texto: "Modificada por Bruno" }));
+  await assertFails(deleteDoc(refAnaInBruno));
+  await assertSucceeds(deleteDoc(refAnaInAna));
+});
+
+test("texto o autor vacíos o que superan el límite de caracteres se rechazan", async () => {
+  const db = env.authenticatedContext("ana").firestore();
+  const ref = doc(db, "cursos", CURSO, "resenas", "ana");
+  await assertFails(setDoc(ref, resena({ texto: "" })));
+  await assertFails(setDoc(ref, resena({ autor: "" })));
+  await assertFails(setDoc(ref, resena({ texto: "a".repeat(501) })));
+  await assertFails(setDoc(ref, resena({ autor: "a".repeat(81) })));
 });
