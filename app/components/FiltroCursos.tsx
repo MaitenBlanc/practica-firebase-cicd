@@ -2,6 +2,8 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import type { Curso, Nivel } from "@/lib/cursos";
+import ResenasCurso from "./ResenasCurso";
+import { useUsuario } from "@/lib/useUsuario";
 
 const niveles: Array<Nivel | "todos"> = ["todos", "inicial", "intermedio", "avanzado"];
 
@@ -14,6 +16,9 @@ interface Props {
 export default function FiltroCursos({ cursos, accion }: Props) {
   const [nivel, setNivel] = useState<Nivel | "todos">("todos");
   const [texto, setTexto] = useState("");
+
+  // Obtener el usuario actual
+  const usuario = useUsuario();
 
   const visibles = useMemo(
     () =>
@@ -64,6 +69,9 @@ export default function FiltroCursos({ cursos, accion }: Props) {
               {c.horas} horas · cupo {c.cupo}
             </small>
             {accion && <div className="card__accion">{accion(c)}</div>}
+
+            <hr style={{ margin: "1rem 0" }} />
+            <ResenasCurso cursoId={c.id} uid={usuario?.uid || null} />
           </li>
         ))}
       </ul>
