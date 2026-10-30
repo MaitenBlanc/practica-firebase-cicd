@@ -27,6 +27,7 @@ export interface Resena {
     texto: string;
     autor: string;
     creadaEn: Timestamp | null; // null mientras el serverTimestamp está pendiente (escritura local)
+    pendiente?: boolean; // true mientras la escritura local no fue confirmada por el servidor (hasPendingWrites)
 }
 let db: Firestore | null = null;
 export function firestore(): Firestore {
@@ -73,6 +74,7 @@ export function escucharResenas(
   );
   return onSnapshot(
     q,
+    { includeMetadataChanges: true },
     (snap) =>
       alCambiar(
         snap.docs.map((d) => {
@@ -83,6 +85,7 @@ export function escucharResenas(
             texto: data.texto,
             autor: data.autor,
             creadaEn: data.creadaEn ?? null,
+            pendiente: d.metadata.hasPendingWrites,
           };
         }),
       ),

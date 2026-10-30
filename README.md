@@ -1,137 +1,160 @@
-# Catálogo de Cursos · Prácticas de Programación Avanzada
+# Catálogo de Cursos — Plataforma Serverless con Next.js y Firebase
 
-Next.js (export estático) + **Firebase** en plan **Spark** (sin tarjeta de crédito).
-El mismo repo evoluciona clase a clase:
+Aplicación web de catálogo académico, inscripciones y reseñas en tiempo real construida con **Next.js 16 (Static Export)** y el ecosistema **Firebase** bajo el plan gratuito **Spark**.
 
-| Clase | Tema | Estado de este repo |
+El proyecto integra dos modelos de persistencia complementarios (**relacional con PostgreSQL / SQL Connect** para inscripciones con integridad referencial, y **documental en tiempo real con Cloud Firestore** para reseñas en vivo), protegidos mediante **Content Security Policy (CSP)**, directivas `@auth` en GraphQL, **Firestore Security Rules** con validación de esquema por lista blanca y pipelines de **CI/CD en GitHub Actions**.
+
+- **Producción**: <https://practica-firebase-cicd-33d61.web.app>
+- **Evidencia y reflexiones técnicas**: [`REFLEXION.md`](./REFLEXION.md)
+
+---
+
+## Evolución del Proyecto por Prácticas
+
+| Práctica | Eje Técnico | Estado |
 |---|---|---|
-| 1 | CI/CD con Firebase Hosting, preview channels y headers de seguridad | ✅ resuelta (incluida) |
-| 2 · lunes | **SQL Connect**: PostgreSQL detrás de una API con autorización | ⬅️ **punto de partida** |
-| 3 · viernes | Analytics: plan de medición, consentimiento y SQL en BigQuery | próximamente |
-
-> El enunciado, el cronograma y la rúbrica están en el documento de cada práctica.
-> Este README es la guía técnica rápida.
+| **Práctica 1** | **CI/CD y Hardening HTTP**: Pipelines en GitHub Actions (Preview Channels por PR + Deploy a `live`), caché inmutable y cabeceras de seguridad (`CSP`, `HSTS`, `X-Frame-Options`, `Permissions-Policy`, `COOP`). | ✅ Completada |
+| **Práctica 2** | **Firebase Auth + SQL Connect (PostgreSQL)**: Autenticación email/contraseña, esquema relacional (`Curso`, `Alumno`, `Matricula` con clave primaria compuesta), operaciones GraphQL autorizadas con `@auth` y auditoría automatizada contra vulnerabilidades IDOR/fuga de PII. | ✅ Completada |
+| **Práctica 4** | **Cloud Firestore en Tiempo Real y Security Rules**: Subcolecciones `cursos/{cursoId}/resenas/{uid}`, suscripciones en vivo (`onSnapshot`), consultas de agregación (`count`, `average`), índice compuesto declarativo, reglas de seguridad y suite de tests unitarios contra el emulador. | ✅ Completada |
 
 ---
 
-## Arquitectura (clase 2)
+## Arquitectura General
 
-```
- Navegador (Next.js estático)
-   │  Firebase Auth (email/contraseña) ──────────▶ token con auth.uid y auth.token.email
-   │
-   │  executeQuery("ListCursos")  ┐
-   │  executeMutation("Inscribirme", { cursoId })  ┘  solo NOMBRE + variables, nunca SQL
-   ▼
- SQL Connect ── conector "cursos" (dataconnect/cursos/*.gql) ── @auth decide quién ejecuta qué
-   ▼
- PostgreSQL (Cloud SQL, prueba sin costo 90 días)   ·   en desarrollo: emulador local (PGlite)
+```text
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│                         Navegador (Next.js 16 Export Estático)                    │
+│   • Firebase Hosting CDN + Headers de Seguridad (CSP estricta, HSTS, nosniff)     │
+│   • Estado de sesión reactivo (useUsuario) + Caché local de Firestore             │
+└───────────────┬───────────────────────────────┬───────────────────────────────────┘
+                │                               │
+                │ 1. Operaciones GraphQL        │ 2. Lecturas, escrituras y
+                │    precompiladas + JWT        │    listeners WebChannel (onSnapshot)
+                ▼                               ▼
+┌───────────────────────────────┐ ┌─────────────────────────────────────────────────┐
+│     Firebase SQL Connect      │ │                 Cloud Firestore                 │
+│  • Conector: dataconnect/     │ │  • Subcolección: cursos/{cursoId}/resenas/{uid} │
+│  • Autorización: @auth        │ │  • Seguridad: firestore.rules (lista blanca,    │
+│    (PUBLIC, USER, NO_ACCESS)  │ │    identidad uid, serverTimestamp inmutable)    │
+│  • Expresiones: auth.uid      │ │  • Índices: firestore.indexes.json              │
+└───────────────┬───────────────┘ └─────────────────────────────────────────────────┘
+                ▼
+┌───────────────────────────────┐
+│   PostgreSQL (Cloud SQL /     │
+│   PGlite en emulador local)   │
+│  • Tablas: curso, alumno,     │
+│    matricula (PK compuesta)   │
+└───────────────────────────────┘
 ```
 
-| Pieza | Rol |
-|---|---|
-| `dataconnect/schema/schema.gql` | Tablas: `Curso`, `Alumno` y **`Matricula` (la completás vos)** |
-| `dataconnect/cursos/queries.gql` · `mutations.gql` | Operaciones expuestas a la app — **con TODOs** |
-| `dataconnect/seed_data.gql` | Datos iniciales (cursos y dos alumnos ficticios) |
-| `lib/firebase.ts` | Inicializa Firebase; en `npm run dev` usa los **emuladores** |
-| `lib/sqlconnect.ts` | Llama a las operaciones por nombre (ya escrito) |
-| `scripts/atacar.mjs` | Auditoría: se comporta como un atacante y prueba tus reglas `@auth` |
+### Por qué coexisten SQL Connect y Cloud Firestore
+
+| Caso de uso en la app | Motor elegido | Justificación |
+|---|---|---|
+| **Catálogo e inscripciones a cursos** | **SQL Connect (PostgreSQL)** | Requiere esquema fijo, claves foráneas (`ON DELETE CASCADE`), unicidad garantizada por clave compuesta `(alumno_id, curso_id)` y operaciones cerradas definidas en el servidor. |
+| **Reseñas y calificaciones en vivo** | **Cloud Firestore (NoSQL)** | Requiere sincronización instantánea entre navegadores (`onSnapshot`), compensación de latencia local (`hasPendingWrites`) y modelo jerárquico por subcolección donde el ID del documento (`{uid}`) garantiza una única reseña por usuario y curso. |
 
 ---
 
-## Si venís de la clase 1 (tu propio repo)
+## Estructura del Repositorio
 
-1. Commiteá todo lo que tengas.
-2. Copiá **sobre tu repo** el contenido de este, **excepto** `.github/`, `.firebaserc` y `firebase.json`
-   (esos ya los tenés configurados con tu proyecto).
-3. En **tu** `firebase.json`, agregá estas dos claves al mismo nivel que `"hosting"`:
-   ```json
-   "dataconnect": { "source": "dataconnect" },
-   "emulators": {
-     "auth": { "port": 9099 },
-     "dataconnect": { "port": 9399, "dataDir": "dataconnect/.dataconnect/pgliteData" },
-     "hosting": { "port": 5000 },
-     "ui": { "enabled": true },
-     "singleProjectMode": true
-   }
+```text
+├── .github/workflows/
+│   ├── firebase-hosting-pull-request.yml  # CI + Preview Channel efímero (3d) + Gate de headers HTTP
+│   └── firebase-hosting-merge.yml         # CD a producción (canal live, environment production)
+├── app/
+│   ├── components/
+│   │   ├── CatalogoSql.tsx                # Catálogo conectado a SQL Connect + alta de inscripción
+│   │   ├── FiltroCursos.tsx               # Buscador por texto, filtro por nivel y tarjetas de curso
+│   │   ├── EstadoSesion.tsx               # Barra de estado de autenticación
+│   │   └── ResenasCurso.tsx               # Formulario, resumen (count/average) y lista en vivo (Firestore)
+│   ├── cursos/page.tsx                    # Página del catálogo de cursos
+│   ├── ingresar/page.tsx                  # Login y registro con Firebase Auth + upsert de Alumno
+│   └── mis-inscripciones/page.tsx         # Listado de inscripciones del alumno y baja
+├── dataconnect/
+│   ├── schema/schema.gql                  # Modelo relacional PostgreSQL (Curso, Alumno, Matricula)
+│   ├── cursos/queries.gql                 # Queries GraphQL (ListCursos, MisInscripciones, ListAlumnos)
+│   ├── cursos/mutations.gql               # Mutations GraphQL (RegistrarAlumno, Inscribirme, DarmeDeBaja)
+│   └── seed_data.gql                      # Datos semilla para el emulador y producción
+├── lib/
+│   ├── firebase.ts                        # Inicialización de Firebase App, Auth y Data Connect
+│   ├── sqlconnect.ts                      # Cliente del SDK generado para SQL Connect
+│   ├── resenas.ts                         # Capa de acceso a Firestore (setDoc, deleteDoc, onSnapshot, agregaciones)
+│   └── useUsuario.ts                      # Hook de suscripción al usuario autenticado
+├── scripts/
+│   ├── check-headers.mjs                  # Verificación automatizada de cabeceras HTTP y caché
+│   ├── seed.mjs                           # Carga inicial de datos en el emulador de SQL Connect
+│   └── atacar.mjs                         # Auditoría de seguridad contra las operaciones de SQL Connect
+├── tests/
+│   └── reglas.test.mjs                    # 10 tests automatizados de Firestore Security Rules
+├── firebase.json                          # Configuración de Hosting, CSP, Firestore, Data Connect y Emuladores
+├── firestore.rules                        # Reglas declarativas de seguridad de Cloud Firestore
+├── firestore.indexes.json                 # Índices compuestos declarados como código
+└── REFLEXION.md                           # Evidencias de auditoría, capturas y respuestas de todas las prácticas
+```
+
+---
+
+## Requisitos Previos
+
+- **Node.js 24 LTS** (requerido por `@firebase/rules-unit-testing@6` y el runner nativo `node --test`).
+- **Java 21+** (requerido para ejecutar el emulador local de Cloud Firestore).
+
+---
+
+## Ejecución en Desarrollo Local (Emulator Suite)
+
+En modo desarrollo (`NODE_ENV=development`), la aplicación se conecta automáticamente a los emuladores locales sin consumir cuota de producción:
+
+- **Auth Emulator**: `127.0.0.1:9099`
+- **Firestore Emulator**: `127.0.0.1:8080`
+- **Data Connect (PostgreSQL / PGlite)**: `127.0.0.1:9399`
+- **Emulator UI**: <http://127.0.0.1:4000>
+
+### Pasos para levantar el entorno
+
+1. **Instalar dependencias:**
+   ```bash
+   npm install
    ```
-4. `npm install`
-
-## Preparación previa (antes del lunes, ~20 min)
-
-1. Consola de Firebase → **Authentication** → *Comenzar* → *Sign-in method* → habilitá
-   **Correo electrónico/contraseña**.
-2. Consola → ⚙ *Configuración del proyecto* → *Tus apps* → si no hay una **app web**, creala
-   (ícono `</>`). Copiá `apiKey`, `authDomain`, `projectId` y `appId` en `lib/firebase-config.ts`.
-3. Verificá que los emuladores arrancan (la primera vez descargan el emulador de SQL Connect):
+2. **Terminal 1 — Iniciar emuladores (Auth + SQL Connect + Firestore):**
    ```bash
    npm run emulators
    ```
-   Tiene que mostrar *All emulators ready* con Auth en 9099 y SQL Connect en 9399.
-   La interfaz de los emuladores queda en <http://127.0.0.1:4000>.
-4. En otra terminal: `npm run seed` y luego `npm run dev` → abrí <http://localhost:3000/cursos>:
-   tienen que aparecer 7 cursos leídos desde PostgreSQL.
-
-> **Recomendado:** instalá la extensión **Firebase** de VS Code. Valida los `.gql` mientras
-> escribís (autocompleta campos como `alumnoId_expr`) y permite ejecutar operaciones contra el
-> emulador con un click.
-
----
-
-## Durante la clase · flujo de trabajo
-
-Tres terminales:
-
-```bash
-npm run emulators     # 1 · Auth + SQL Connect locales
-npm run dev           # 2 · la app en http://localhost:3000
-npm run atacar        # 3 · auditoría de seguridad (repetila después de cada cambio)
-```
-
-| TODO | Dónde | Qué |
-|---|---|---|
-| L1 | `schema.gql` | Tabla `Matricula` (muchos-a-muchos, clave compuesta, fecha del servidor) |
-| L2 | `mutations.gql` | `Inscribirme($cursoId)` · solo usuarios, idempotente, sin elegir alumno |
-| L3 | `queries.gql` | `MisInscripciones` · solo las del usuario que llama |
-| L4 | `queries.gql` | Auditar y corregir `ListAlumnos` |
-| L5 *(opcional)* | `mutations.gql` | `DarmeDeBaja($cursoId)` |
-| L6 | `firebase.json` | CSP: permitir que la app de producción hable con Auth y SQL Connect |
-| L7 | consola | Deploy de SQL Connect a producción (prueba sin costo) |
-
-Después de editar un `.gql`, mirá la terminal de los emuladores: ahí aparecen los errores de
-compilación del esquema. Si no toma los cambios, reiniciá `npm run emulators`. Si cambiaste el
-esquema y se queja de datos viejos, borrá `dataconnect/.dataconnect/` y volvé a correr `npm run seed`.
-
-### Deploy a producción (L7)
-
-```bash
-npx firebase deploy --only dataconnect     # la 1.ª vez crea la instancia Cloud SQL de prueba
-npx firebase dataconnect:execute dataconnect/seed_data.gql   # datos iniciales en producción
-```
-
-La creación de la instancia tarda varios minutos; mientras tanto SQL Connect guarda los
-datos en una base temporal y los migra al terminar. Después, el frontend se publica como
-siempre: **por Pull Request** (tu pipeline de la clase 1).
+3. **Terminal 2 — Poblar cursos iniciales en el emulador SQL (solo la primera vez):**
+   ```bash
+   npm run seed
+   ```
+4. **Terminal 2 — Iniciar servidor de desarrollo de Next.js:**
+   ```bash
+   npm run dev
+   ```
+   Abrir <http://localhost:3000/cursos>.
 
 ---
 
-## Comandos
+## Scripts de Verificación, Seguridad y Testing
 
-| Comando | Para qué |
+| Comando | Descripción |
 |---|---|
-| `npm run emulators` | Emuladores de Auth y SQL Connect (+ UI en :4000) |
-| `npm run seed` | Carga `seed_data.gql` en el emulador (privilegios de admin) |
-| `npm run atacar` | Auditoría de seguridad de las operaciones contra el emulador |
-| `npm run dev` | App en modo desarrollo, conectada a los emuladores |
-| `npm run build` · `npm run serve` | Build de producción + emulador de Hosting con headers |
-| `node scripts/check-headers.mjs <URL>` | Verifica headers de seguridad y caché |
-| `npx firebase dataconnect:sql:diff` | Diferencias entre tu esquema y la base de producción |
+| `npm run typecheck` | Verifica tipos de TypeScript (`tsc --noEmit`) sin emitir archivos. |
+| `npm run test:reglas` | Levanta un emulador efímero de Firestore y ejecuta los 10 tests de seguridad en `tests/reglas.test.mjs`. |
+| `npm run atacar` | Ejecuta la auditoría de seguridad contra el emulador de SQL Connect verificando protección contra IDOR y acceso no autorizado. |
+| `node scripts/check-headers.mjs <URL>` | Audita las cabeceras HTTP de seguridad (`CSP`, `HSTS`, `X-Frame-Options`, etc.) y directivas `Cache-Control` contra una URL desplegada. |
+| `npm run build` | Genera la exportación estática de producción en `out/`. |
 
-## Problemas frecuentes
+---
 
-- **"No hay conexión con los emuladores"**: falta `npm run emulators` en otra terminal.
-- **El catálogo dice que no puede cargar** en `npm run dev`: emuladores apagados o falta `npm run seed`.
-- **`operation not found` / `Inscribirme` no existe**: la operación todavía no está escrita, o el `.gql` tiene un error (mirá la terminal de los emuladores).
-- **`unauthenticated` al inscribirse**: no hay sesión iniciada (o la operación es `USER` y llamás sin login: ¡eso es lo correcto!).
-- **En producción el catálogo no carga y la consola dice `Refused to connect`**: falta L6 (CSP `connect-src`).
-- **Push de workflows rechazado** (*without workflow scope*): ver la preparación de la clase 1.
+## Despliegue a Producción
+
+1. **Reglas e índices de Firestore:**
+   ```bash
+   npx firebase deploy --only firestore:rules,firestore:indexes
+   ```
+2. **Esquema y conectores de SQL Connect:**
+   ```bash
+   npx firebase deploy --only dataconnect
+   ```
+3. **Frontend y cabeceras de Hosting (vía CI/CD):**
+   - Al abrir un **Pull Request**, el workflow `.github/workflows/firebase-hosting-pull-request.yml` compila la app, publica un **Preview Channel** con vencimiento de 3 días y ejecuta `scripts/check-headers.mjs` como *quality gate*.
+   - Al hacer **merge a `main`**, el workflow `.github/workflows/firebase-hosting-merge.yml` despliega automáticamente al canal `live` de producción.

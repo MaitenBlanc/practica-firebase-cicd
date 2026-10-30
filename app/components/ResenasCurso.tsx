@@ -2,7 +2,7 @@
 // app/components/ResenasCurso.tsx Práctica 4. Formulario lista en tiempo real resumen.
 
 import { useEffect, useState, type FormEvent } from "react";
-import { escucharResenas, guardarResena, resumenDe, type Resena } from "@/lib/resenas";
+import { borrarResena, escucharResenas, guardarResena, resumenDe, type Resena } from "@/lib/resenas";
 
 export default function ResenasCurso({ cursoId, uid }: { cursoId: string; uid: string | null }) {
   const [resenas, setResenas] = useState<Resena[]>([]);
@@ -32,6 +32,15 @@ export default function ResenasCurso({ cursoId, uid }: { cursoId: string; uid: s
     }
   }
 
+  async function onBorrar() {
+    try {
+      await borrarResena(cursoId);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
+
   return (
     <section>
       <h3>
@@ -52,6 +61,11 @@ export default function ResenasCurso({ cursoId, uid }: { cursoId: string; uid: s
           </select>
           <textarea name="texto" maxLength={500} defaultValue={mia?.texto ?? ""} required />
           <button type="submit">{mia ? "Actualizar mi reseña" : "Publicar"}</button>
+          {mia && (
+            <button type="button" onClick={onBorrar}>
+              Borrar mi reseña
+            </button>
+          )}
         </form>
       )}
 
@@ -61,6 +75,7 @@ export default function ResenasCurso({ cursoId, uid }: { cursoId: string; uid: s
         {resenas.map((r) => (
           <li key={r.uid}>
             <strong>{"⭐".repeat(r.puntaje)}</strong> {r.texto} <em> - {r.autor}</em>
+            {r.pendiente && <small> (enviando…)</small>}
           </li>
         ))}
       </ul>
